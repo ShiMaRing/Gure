@@ -1,29 +1,30 @@
-package module
+package gerror
 
 import (
+	"Gure/module"
 	"strings"
 )
 
 type CustomError interface {
-	Type() ErrorType //指出错误出现的模块
-	Error() string   //实现Error接口
+	Type() module.ErrorType //指出错误出现的模块
+	Error() string          //实现Error接口
 }
 
 type SpiderError struct {
-	errType   ErrorType //指出错误出现的模块
-	errMsg    string    //提示错误信息
-	cplErrMsg string    //完整错误信息
+	errType   module.ErrorType //指出错误出现的模块
+	errMsg    string           //提示错误信息
+	cplErrMsg string           //完整错误信息
 }
 
 // NewSpiderError 构造方法
-func NewSpiderError(errType ErrorType, errMsg string) *SpiderError {
+func NewSpiderError(errType module.ErrorType, errMsg string) *SpiderError {
 	return &SpiderError{errType: errType,
 		errMsg: strings.TrimSpace(errMsg),
 	}
 }
 
 // Type 返回错误类型
-func (s SpiderError) Type() ErrorType {
+func (s SpiderError) Type() module.ErrorType {
 	return s.errType
 }
 

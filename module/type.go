@@ -8,8 +8,14 @@ const (
 	PIPELINE   Type = "pipeline"
 )
 
-var legalTypeLetterMap = map[Type]string{
+var LegalTypeLetterMap = map[Type]string{
 	DOWNLOADER: "D",
 	ANALYZER:   "A",
 	PIPELINE:   "P",
+}
+
+var LegalLetterTypeMap = map[string]Type{
+	"D": DOWNLOADER,
+	"A": ANALYZER,
+	"P": PIPELINE,
 }
