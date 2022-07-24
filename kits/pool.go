@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 )
 
+const EXTRA = 10
+
 // Pool 数据缓冲池，底层由数据缓冲器支撑构造
 type Pool interface {
 
@@ -66,7 +68,7 @@ func (g *gurePool) BufferNum() (num uint32) {
 }
 
 func (g *gurePool) Total() uint64 {
-	return uint64(atomic.LoadUint32(&g.bufferNumber) * g.bufferCap)
+	return uint64(atomic.LoadUint64(&g.total))
 }
 
 func (g *gurePool) Put(data interface{}) (err error) {
@@ -133,7 +135,7 @@ func (g *gurePool) putData(buf *gureBuffer, data interface{}, count *uint32, max
 			err = BufferClosedError
 			buf.Close() //及时关闭避免内存泄露
 		} else {
-			//重新加回去，此时是线程安全的
+			//重新加回去，此时是线程安全的，这个步骤可能会产生阻塞，因为此时通道可能已经满了
 			g.bufChan <- buf
 		}
 		g.rwLock.RUnlock() //解锁
@@ -215,4 +217,16 @@ func (g *gurePool) getData(buf *gureBuffer, count *uint32, max uint32) (data int
 	}
 	*count++ //拿不到数据
 	return
+}
+
+func NewPool(bufferCap, bufferMaxNum uint32) Pool {
+
+	var gure = &gurePool{}
+	gure.bufferCap = bufferCap
+	gure.maxBufferNum = bufferMaxNum
+	//通道缓冲数，额外添加一部分区域，用来减少阻塞
+	gure.bufChan = make(chan *gureBuffer, bufferMaxNum+EXTRA)
+	buffer, _ := NewGureBuffer(gure.bufferCap)
+	gure.bufChan <- buffer
+	return gure
 }

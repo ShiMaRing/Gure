@@ -21,3 +21,13 @@ type SummaryStruct struct {
 	Pipelines   []module.SummaryStruct
 	NumUrl      uint64
 }
+
+func (s SummaryStruct) Struct() SummaryStruct {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s SummaryStruct) String() string {
+	//TODO implement me
+	panic("implement me")
+}

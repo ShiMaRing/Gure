@@ -110,7 +110,10 @@ func (g *gureRegister) GetAll() map[module.MID]module.Module {
 func (g *gureRegister) Clear() {
 	g.rwLock.Lock()
 	defer g.rwLock.Unlock() //获取锁，避免对错误的map操作
-
+	//清空map
+	for k, _ := range g.moduleTypeMap {
+		delete(g.moduleTypeMap, k) //清空所有map
+	}
 }
 
 // SetScore 为module设置分数，module底层并发安全
@@ -131,4 +134,9 @@ func SetScore(m module.Module) error {
 
 func avgCalculate(counts module.Counts) uint64 {
 	return (counts.Accepted + counts.Called + counts.Completed + counts.Handling) / 4
+}
+
+// NewRegister 创建一个新的注册器
+func NewRegister() module.Registrar {
+	return &gureRegister{moduleTypeMap: map[module.Type]map[module.MID]module.Module{}}
 }
