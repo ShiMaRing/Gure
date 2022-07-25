@@ -17,8 +17,8 @@ type SpiderError struct {
 }
 
 // NewSpiderError 构造方法
-func NewSpiderError(errType module.ErrorType, errMsg string) *SpiderError {
-	return &SpiderError{errType: errType,
+func NewSpiderError(errType module.ErrorType, errMsg string) SpiderError {
+	return SpiderError{errType: errType,
 		errMsg: strings.TrimSpace(errMsg),
 	}
 }

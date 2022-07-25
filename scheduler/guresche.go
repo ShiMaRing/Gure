@@ -3,11 +3,14 @@ package scheduler
 import (
 	"Gure/gerror"
 	"Gure/kits"
+	"Gure/logger"
 	"Gure/module"
 	"Gure/regist"
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"sync"
 )
 
@@ -113,9 +116,59 @@ func (g *gureScheduler) Init(reqArgs RequestArgs, dataArgs DataArgs, moduleArgs 
 	return err
 }
 
-func (g *gureScheduler) Start(firstReq *module.Request) error {
-	//TODO implement me
-	panic("implement me")
+func (g *gureScheduler) Start(firstReq *http.Request) (err error) {
+	//捕获panic防止程序崩溃
+	defer func() {
+		if p := recover(); p != nil {
+			errMsg := fmt.Sprintf("Schedule error %s ", p)
+			logger.Fatalf(errMsg)
+			err = errors.New(errMsg)
+		}
+	}()
+	logger.Info("Start scheduler...")
+
+	//首先需要检查状态是否合法
+	var oldStatus Status
+	oldStatus, err = g.checkAndSetStatus(SchedStatusStarting)
+	//出现错误应该要换回原来的状态,否则认为启动完成
+	defer func() {
+		g.statusLock.Lock()
+		if err != nil {
+			g.status = oldStatus
+		} else {
+			g.status = SchedStatusStarted
+		}
+		g.statusLock.Unlock()
+	}()
+	//查看状态是否切换成功，失败则直接退出
+	if err != nil {
+		return
+	}
+	//检查传入的初始参数
+	if firstReq == nil {
+		err = gerror.NewIllegalParameterError("nil firstReq")
+		return
+	}
+	//获得初次的域名并进行添加
+	var primaryDomain string
+	if firstReq.Host == "" {
+		err = gerror.NewIllegalParameterError("empty host")
+		return
+	}
+	primaryDomain = firstReq.Host
+	g.acceptedDomain.Store(primaryDomain, struct{}{})
+	//开始执行各个操作，还需要检查缓冲池的初始化问题
+	if err = g.checkPoolsForStart(); err != nil {
+		return err
+	}
+	//都没有问题就可以开始爬取工作
+	//三个异步方法，同步爬取
+	g.download()
+	g.analyze()
+	g.pick()
+	request := module.NewRequest(firstReq, 0)
+	g.sendReq(request) //向缓冲池放入第一个请求
+	return nil
 }
 
 func (g *gureScheduler) Stop() error {
@@ -141,87 +194,4 @@ func (g *gureScheduler) Idle() bool {
 func (g *gureScheduler) Summary() SchedulerSummary {
 	//TODO implement me
 	panic("implement me")
-}
-
-//会出现多个线程同时操作调度器并发爬取
-func (g *gureScheduler) checkAndSetStatus(wanted Status) (oldStatus Status, err error) {
-	//检查当前状态以及期望状态，查看是否能够进行转化操作
-	g.statusLock.Lock() //先上锁避免竞态
-	defer g.statusLock.Unlock()
-	oldStatus = g.status
-	err = checkStatus(oldStatus, wanted) //检查是否能够切换
-	if err == nil {
-		g.status = wanted
-		return oldStatus, nil
-	}
-	return
-}
-
-func (g *gureScheduler) setReqArgs(args RequestArgs) {
-	//传入的参数设置,默认在检查过程中完成了相应的默认值设置
-	for _, domain := range args.AcceptedDomains {
-		g.acceptedDomain.Store(domain, struct{}{})
-	}
-	g.maxDepth = args.MaxDepth
-}
-
-func (g *gureScheduler) setDataArgs(args DataArgs) {
-	//默认此时参数都已经完成检查了，会设置阈值，少于阈值会进行修订
-	g.reqBuffPool = kits.NewPool(args.ReqBufferCap, args.ReqBufferMaxNum)
-	g.respBuffPool = kits.NewPool(args.RespBufferCap, args.RespBufferMaxNum)
-	g.itemBuffPool = kits.NewPool(args.ItemBufferCap, args.ItemBufferMaxNum)
-	g.errBuffPool = kits.NewPool(args.ErrorBufferCap, args.ErrorBufferMaxNum)
-
-}
-
-func (g *gureScheduler) register(args ModuleArgs) (err error) {
-	for _, downloader := range args.DownLoaders {
-		_, err = g.registrar.Register(downloader)
-		if err != nil {
-			return
-		}
-	}
-	for _, analyzer := range args.Analyzers {
-		_, err = g.registrar.Register(analyzer)
-		if err != nil {
-			return
-		}
-	}
-	for _, pipeline := range args.Pipelines {
-		_, err = g.registrar.Register(pipeline)
-		if err != nil {
-			return
-		}
-	}
-	return nil
-}
-
-func checkStatus(old Status, wanted Status) error {
-	//三个状态下不可以改变
-	if old == SchedStatusInitializing || old == SchedStatusStopping || old == SchedStatusStarting {
-		return gerror.StatusChangeError("current status cant be changed")
-	}
-	if wanted != SchedStatusInitializing && wanted != SchedStatusStopping && wanted != SchedStatusStarting {
-		return gerror.StatusChangeError("wanted status error")
-	}
-	if old == SchedStatusUninitialized && (wanted == SchedStatusStarting || wanted == SchedStatusStopping) {
-		return gerror.StatusChangeError("cant change to wanted")
-	}
-	if old == SchedStatusStarted && (wanted == SchedStatusStarting || wanted == SchedStatusInitializing) {
-		return gerror.StatusChangeError("cant change to wanted")
-	}
-	if old != SchedStatusStarted && wanted == SchedStatusStopping {
-		return gerror.StatusChangeError("cant change to wanted")
-	}
-	return nil
-}
-
-// New 创建原生调度器对象，必须要执行Init方法进行初始化
-func New() Scheduler {
-	return &gureScheduler{}
-}
-
-//NewDefault 生成默认参数调度器对象
-func NewDefault() {
-
 }

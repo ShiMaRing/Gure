@@ -174,7 +174,6 @@ func (g *gurePool) putData(buf *gureBuffer, data interface{}, count *uint32, max
 		//如果已经被填满了，解锁返回
 		g.rwLock.Unlock()
 		return
-
 	}
 	return
 }
@@ -220,9 +219,9 @@ func (g *gurePool) getData(buf *gureBuffer, count *uint32, max uint32) (data int
 }
 
 func NewPool(bufferCap, bufferMaxNum uint32) Pool {
-
 	var gure = &gurePool{}
-	gure.bufferCap = bufferCap
+	//额外添加部分空间
+	gure.bufferCap = bufferCap + EXTRA
 	gure.maxBufferNum = bufferMaxNum
 	//通道缓冲数，额外添加一部分区域，用来减少阻塞
 	gure.bufChan = make(chan *gureBuffer, bufferMaxNum+EXTRA)
