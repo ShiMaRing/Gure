@@ -1,6 +1,6 @@
 package module
 
-//序号生成器接口
+// IDXGenerator 序号生成器接口
 type IDXGenerator interface {
 	// Start 最小序列号
 	Start() uint64

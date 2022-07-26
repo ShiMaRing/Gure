@@ -18,7 +18,7 @@ type Scheduler interface {
 	Status() Status
 
 	// ErrorChan 返回通道，接收过程中的错误
-	ErrorChan() <-chan error
+	ErrorChan() (<-chan error, error)
 
 	// Idle 返回当前模块的空闲状态
 	Idle() bool

@@ -1,6 +1,9 @@
 package scheduler
 
-import "Gure/module"
+import (
+	"Gure/module"
+	"encoding/json"
+)
 
 // SchedulerSummary 调度器摘要接口
 type SchedulerSummary interface {
@@ -22,12 +25,16 @@ type SummaryStruct struct {
 	NumUrl      uint64
 }
 
+// Struct 直接返回自身即可
 func (s SummaryStruct) Struct() SummaryStruct {
-	//TODO implement me
-	panic("implement me")
+	return s
 }
 
 func (s SummaryStruct) String() string {
-	//TODO implement me
-	panic("implement me")
+	//需要定义返回格式
+	marshal, err := json.Marshal(s)
+	if err != nil {
+		return err.Error()
+	}
+	return string(marshal)
 }

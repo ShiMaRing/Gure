@@ -171,27 +171,133 @@ func (g *gureScheduler) Start(firstReq *http.Request) (err error) {
 	return nil
 }
 
-func (g *gureScheduler) Stop() error {
-	//TODO implement me
-	panic("implement me")
+func (g *gureScheduler) Stop() (err error) {
+	//捕获panic防止程序崩溃
+	defer func() {
+		if p := recover(); p != nil {
+			errMsg := fmt.Sprintf("Schedule close with panic %s ", p)
+			logger.Fatalf(errMsg)
+			err = errors.New(errMsg)
+		}
+	}()
+	logger.Info("Closing scheduler...")
+
+	//首先需要检查状态是否合法
+	var oldStatus Status
+	oldStatus, err = g.checkAndSetStatus(SchedStatusStopping)
+	//出现错误应该要换回原来的状态,否则认为启动完成
+	defer func() {
+		g.statusLock.Lock()
+		if err != nil {
+			g.status = oldStatus
+		} else {
+			g.status = SchedStatusStopped
+		}
+		g.statusLock.Unlock()
+	}()
+	//查看状态是否切换成功，失败则直接退出
+	if err != nil {
+		return
+	}
+	//调用ctx，调用close,应当先取消，避免新请求被处理
+	g.cancelFunc()
+	g.reqBuffPool.Close()
+	g.respBuffPool.Close()
+	g.itemBuffPool.Close()
+	g.errBuffPool.Close()
+	logger.Info("finish close scheduler")
+	return
 }
 
 func (g *gureScheduler) Status() Status {
-	//TODO implement me
-	panic("implement me")
+	g.statusLock.RLock()
+	defer g.statusLock.RUnlock()
+	return g.status
 }
 
-func (g *gureScheduler) ErrorChan() <-chan error {
-	//TODO implement me
-	panic("implement me")
+// ErrorChan 返回只读错误通道，用户不应当主动关闭
+func (g *gureScheduler) ErrorChan() (<-chan error, error) {
+	errBuffer := g.errBuffPool
+	if errBuffer == nil {
+		return nil, fmt.Errorf("the errBufferPool is nil")
+	}
+	errCh := make(chan error, errBuffer.BufferCap())
+	go func(errBuffer kits.Pool, errCh chan error) {
+		for {
+			if g.canceled() {
+				close(errCh) //关闭通道，外界不应该主动关闭
+				return
+			}
+			data, err := errBuffer.Get()
+			if err != nil {
+				//表示连接池关闭
+				logger.Warn("errBufferPool is closed")
+				close(errCh)
+				return
+			}
+			err, ok := data.(error)
+			if !ok {
+				errMsg := fmt.Sprintf("incorrect error type %T", err)
+				logger.Warn(errMsg)
+				g.sendError(errors.New(errMsg), "")
+			}
+			if g.canceled() {
+				close(errCh)
+				return
+			} else {
+
+			}
+
+		}
+
+	}(errBuffer, errCh)
+
+	return errCh, nil
 }
 
 func (g *gureScheduler) Idle() bool {
-	//TODO implement me
-	panic("implement me")
+	//观察是否空闲，遍历所有模块
+	var idle bool
+	for _, m := range g.registrar.GetAll() {
+		if m.HandlingNumber() > 0 {
+			idle = false
+			return idle
+		}
+	}
+	return true
 }
 
+// Summary 返回当前的结构体状态
 func (g *gureScheduler) Summary() SchedulerSummary {
-	//TODO implement me
-	panic("implement me")
+	temp := g.summary //存储了配置信息
+	summaryStruct := temp.(*SummaryStruct)
+	summaryStruct.Status = g.Status()
+	summaryStruct.Downloaders = []module.SummaryStruct{}
+	summaryStruct.Pipelines = []module.SummaryStruct{}
+	summaryStruct.Analyzers = []module.SummaryStruct{}
+	byType, _ := g.registrar.GetAllByType(module.DOWNLOADER)
+	for _, m := range byType {
+		summaryStruct.Downloaders = append(summaryStruct.Downloaders, convertToSummary(m))
+	}
+
+	byType, _ = g.registrar.GetAllByType(module.ANALYZER)
+	for _, m := range byType {
+		summaryStruct.Analyzers = append(summaryStruct.Analyzers, convertToSummary(m))
+	}
+
+	byType, _ = g.registrar.GetAllByType(module.PIPELINE)
+	for _, m := range byType {
+		summaryStruct.Pipelines = append(summaryStruct.Pipelines, convertToSummary(m))
+	}
+
+	return summaryStruct
+}
+
+func convertToSummary(m module.Module) module.SummaryStruct {
+	var summaryStruct module.SummaryStruct
+	summaryStruct.ID = m.ID()
+	summaryStruct.Completed = m.CompletedCount()
+	summaryStruct.Handling = m.HandlingNumber()
+	summaryStruct.Called = m.CalledCount()
+	return summaryStruct
 }
