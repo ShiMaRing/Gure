@@ -27,88 +27,74 @@ type gureModule struct {
 }
 
 func (g gureModule) ID() module.MID {
-	//TODO implement me
-	panic("implement me")
+	return g.mid
 }
 
 func (g gureModule) Addr() string {
-	//TODO implement me
-	panic("implement me")
+	return g.addr
 }
 
 func (g gureModule) Score() uint64 {
-	//TODO implement me
-	panic("implement me")
+	return g.score
 }
 
 func (g gureModule) SetScore(uint642 uint64) {
-	//TODO implement me
-	panic("implement me")
+	g.score = uint642
 }
 
 func (g gureModule) ScoreCalculator() module.CalculateScore {
-	//TODO implement me
-	panic("implement me")
+	return g.scoreCalculator
 }
 
 func (g gureModule) CalledCount() uint64 {
-	//TODO implement me
-	panic("implement me")
+	return g.calledCount
 }
 
 func (g gureModule) AcceptedCount() uint64 {
-	//TODO implement me
-	panic("implement me")
+	return g.acceptedCount
 }
 
 func (g gureModule) CompletedCount() uint64 {
-	//TODO implement me
-	panic("implement me")
+	return g.completedCount
 }
 
 func (g gureModule) HandlingNumber() uint64 {
-	//TODO implement me
-	panic("implement me")
+	return g.handlingNumber
 }
 
 func (g gureModule) Counts() module.Counts {
-	//TODO implement me
-	panic("implement me")
+	return g.Counts()
 }
 
 func (g gureModule) Summary() module.SummaryStruct {
-	//TODO implement me
-	panic("implement me")
+	return g.Summary()
 }
 
 func (g gureModule) IncrCalledCount() {
-	//TODO implement me
-	panic("implement me")
+	g.calledCount++
 }
 
 func (g gureModule) IncrAcceptedCount() {
-	//TODO implement me
-	panic("implement me")
+	g.acceptedCount++
 }
 
 func (g gureModule) IncrCompletedCount() {
-	//TODO implement me
-	panic("implement me")
+	g.completedCount++
 }
 
 func (g gureModule) IncrHandlingNumber() {
-	//TODO implement me
-	panic("implement me")
+	g.handlingNumber++
 }
 
 func (g gureModule) DecrHandlingNumber() {
-	//TODO implement me
-	panic("implement me")
+	g.handlingNumber--
 }
 
 func (g gureModule) Clear() {
-	//TODO implement me
-	panic("implement me")
+	g.acceptedCount = 0
+	g.completedCount = 0
+	g.calledCount = 0
+	g.handlingNumber = 0
 }
 
 func NewModuleInternal(mid module.MID, scoreCalculator module.CalculateScore) (internal.ModuleInternal, error) {
